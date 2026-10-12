@@ -1,0 +1,29 @@
+# @mgpl-diagnostics/invoice-kit
+
+> TypeScript library for MGPL Diagnostics patient invoices, rendered as React HTML and as pure Node.js A4 PDFs (react-pdf) on the Navy Sidebar letterhead from @mgpl-diagnostics/report-kit (peer dependency). It handles tests, packages, services, consumables and medicines with qty/rate/discount/GST/HSN, bill discounts, round-off, split payments, PAID/PARTIAL/DUE status, amount in words (Indian), a Code 128 barcode and a UPI or verify QR.
+
+Key facts for agents:
+- `buildInvoice({ invoiceNo, patient, items: ["cbc", { code: "syringe-5ml", qty: 2 }], discount, payments })` → `Invoice`; `computeInvoice(invoice)` → totals (rupees; maths in integer paise).
+- Render: `<InvoiceDocument invoice variant="header" />` (main entry); `renderInvoicePdf({ invoice, variant })` from `/pdf`; `renderInvoiceHtml` from `/server` (Node only).
+- Price-list codes = report-kit template/profile ids plus services/consumables/medicines; `PRICE_LIST` rates are SAMPLE placeholders.
+- Amount column = qty × rate − line discount; bill discount, GST and round-off appear in the totals.
+- Write currency as `Rs.` (no ₹ glyph in the font). Run `npm run smoke` after changes; it verifies arithmetic, fit, glyphs and that every value appears in the PDF text.
+
+## Docs
+
+- [README](README.md): install, quick start, price list, lab settings
+- [API reference](docs/api.md): functions, types, components
+- [AGENTS.md](AGENTS.md): architecture, money rules, react-pdf rendering rules
+
+## Source
+
+- [src/calc.ts](src/calc.ts): arithmetic, money formatting, amount in words
+- [src/build.ts](src/build.ts): buildInvoice
+- [src/price-list.ts](src/price-list.ts): PRICE_LIST
+- [src/model.ts](src/model.ts): rows, columns, totals, pagination
+- [src/types.ts](src/types.ts): data model
+
+## Optional
+
+- [report-kit](https://github.com/mgpl-diagnostics/report-kit): reports, letterhead, fonts, assets
+- [report-studio](https://github.com/mgpl-diagnostics/report-studio): Next.js preview + PDF API reference app
