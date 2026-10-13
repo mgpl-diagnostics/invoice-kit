@@ -20,7 +20,10 @@ jobs:
           scope: "@mgpl-diagnostics"
       - name: Tag must match package.json version
         run: test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
-      # dist/ is committed, so nothing needs installing or building to publish
+      # installs dependencies (incl. @mgpl-diagnostics/* peers from GitHub Packages) and builds dist/ via "prepare"
+      - run: npm install --no-package-lock
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
