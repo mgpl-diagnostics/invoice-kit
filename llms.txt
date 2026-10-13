@@ -1,29 +1,31 @@
 # @mgpl-diagnostics/invoice-kit
 
-> TypeScript library for MGPL Diagnostics patient invoices, rendered as React HTML and as pure Node.js A4 PDFs (react-pdf) on the Navy Sidebar letterhead from @mgpl-diagnostics/report-kit (peer dependency). It handles tests, packages, services, consumables and medicines with qty/rate/discount/GST/HSN, bill discounts, round-off, split payments, PAID/PARTIAL/DUE status, amount in words (Indian), a Code 128 barcode and a UPI or verify QR.
+> Backend-only TypeScript library (Node.js >= 20) for MGPL Diagnostics patient invoices. It handles tests, packages, services, consumables and medicines with qty/rate/discount/GST/HSN, a bill discount shared before tax, round-off, split payments, PAID/PARTIALLY PAID/DUE status and amount in words (Indian). Arithmetic is done in integer paise. Invoices render as PDF (react-pdf) or HTML on the report-kit letterhead. It also provides `createMgplApi()`, one HTTP handler for reports AND invoices, with a Fastify plugin. Peer dependency: @mgpl-diagnostics/report-kit.
 
 Key facts for agents:
-- `buildInvoice({ invoiceNo, patient, items: ["cbc", { code: "syringe-5ml", qty: 2 }], discount, payments })` → `Invoice`; `computeInvoice(invoice)` → totals (rupees; maths in integer paise).
-- Render: `<InvoiceDocument invoice variant="header" />` (main entry); `renderInvoicePdf({ invoice, variant })` from `/pdf`; `renderInvoiceHtml` from `/server` (Node only).
-- Price-list codes = report-kit template/profile ids plus services/consumables/medicines; `PRICE_LIST` rates are SAMPLE placeholders.
-- Amount column = qty × rate − line discount; bill discount, GST and round-off appear in the totals.
-- Write currency as `Rs.` (no ₹ glyph in the font). Run `npm run smoke` after changes; it verifies arithmetic, fit, glyphs and that every value appears in the PDF text.
+- Mount: `createMgplApi({ basePath: "/api/mgpl" })`; Fastify `mgplFastify` from "@mgpl-diagnostics/invoice-kit/fastify"; Express via report-kit's `toNodeHandler`.
+- Routes: POST /invoice (format pdf|html|json), GET /price-list, GET /invoice-samples (opt-in), plus every report-kit route.
+- In code: `buildInvoice({ invoiceNo, patient, items: ["cbc", { code: "syringe-5ml", qty: 2 }], discount, payments })`, then `computeInvoice()` / `renderInvoicePdf()`.
+- PRICE_LIST rates are SAMPLE placeholders. Currency is written "Rs." (the font has no rupee glyph). Amount column = qty × rate − line discount.
+- Run `npm run smoke` (maths, fit, glyphs, PDF text) and `npm run test:api` (HTTP + client + Fastify + node:http) after changes.
 
 ## Docs
 
-- [README](README.md): install, quick start, price list, lab settings
-- [API reference](docs/api.md): functions, types, components
-- [AGENTS.md](AGENTS.md): architecture, money rules, react-pdf rendering rules
+- [README](README.md): features, quick start, combined backend, HTTP API, maths, price list
+- [API reference](docs/api.md): functions, routes, types
+- [AGENTS.md](AGENTS.md): money rules, rendering rules, file map
+- [llms-full.txt](llms-full.txt): everything above plus key source files
 
 ## Source
 
-- [src/calc.ts](src/calc.ts): arithmetic, money formatting, amount in words
+- [src/api.ts](src/api.ts): createMgplApi, invoice routes, validation
+- [src/calc.ts](src/calc.ts): arithmetic, money, amount in words
 - [src/build.ts](src/build.ts): buildInvoice
 - [src/price-list.ts](src/price-list.ts): PRICE_LIST
-- [src/model.ts](src/model.ts): rows, columns, totals, pagination
 - [src/types.ts](src/types.ts): data model
 
 ## Optional
 
-- [report-kit](https://github.com/mgpl-diagnostics/report-kit): reports, letterhead, fonts, assets
-- [report-studio](https://github.com/mgpl-diagnostics/report-studio): Next.js preview + PDF API reference app
+- [report-kit](https://github.com/mgpl-diagnostics/report-kit)
+- [client](https://github.com/mgpl-diagnostics/client)
+- [report-studio](https://github.com/mgpl-diagnostics/report-studio)

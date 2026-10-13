@@ -6,30 +6,37 @@ the same rendering rules apply.
 
 ## What this is
 
-Patient invoices rendered twice, identically:
+The **backend** library (Node.js ≥ 20) for patient invoices. Each invoice is rendered twice, identically:
 - **HTML:** `src/InvoiceDocument.tsx`, a pure React component;
-- **PDF:** `src/InvoicePdf.tsx`, react-pdf, Node only.
+- **PDF:** `src/InvoicePdf.tsx`, react-pdf.
 
-The letterhead layer (`SbLetterhead` / `SbLetterheadPdf`), fonts, assets, barcode and QR come from
-`@mgpl-diagnostics/report-kit`, which is a peer dependency.
+It also owns **`createMgplApi()`**, the single HTTP handler for reports *and* invoices (report-kit's
+routes plus `/invoice`, `/price-list`, `/invoice-samples`), and the Fastify plugin that wraps it.
+
+The letterhead layer, fonts, assets, barcode, QR, HTTP helpers and `defaultLab()` (real signatures from
+env files) come from `@mgpl-diagnostics/report-kit`, which is a peer dependency. There is no browser code
+here; frontends use `@mgpl-diagnostics/client`.
 
 ## Map
 
 ```
 src/
+  index.ts        package entry (everything except the Fastify plugin)
+  fastify.ts      "/fastify" entry: mgplFastify → createMgplApi
+  api.ts          createMgplApi, createInvoiceRoutes, invoiceFromRequest (validation), invoiceTotalsJson
   types.ts        Invoice, InvoiceItem, Payment, ItemCategory, PaymentStatus
   calc.ts         computeInvoice (integer paise), money(), amountInWords() (Indian lakh/crore)
-  price-list.ts   PRICE_LIST — SAMPLE prices, codes = report-kit template/profile ids + services/consumables/medicines
+  price-list.ts   PRICE_LIST — SAMPLE prices; codes = report-kit template/profile ids + services/consumables/medicines
   build.ts        buildInvoice (codes → lines, overrides), itemsForTests
   layout.ts       geometry (inches/pt), shared by both renderers
   model.ts        display logic: grouped rows, dynamic columns, totals lines, cards, QR, pagination
   styles.ts       CSS (report-kit sidebarCss + invoice parts)
   InvoiceDocument.tsx / InvoicePdf.tsx
-  pdf.ts          Node: renderInvoicePdf
-  server.ts       Node: renderInvoiceHtml (self-contained)
-  samples.ts      INVOICE_SAMPLES (fictional) — paid, discount+partial, GST unpaid, multi-page split, overpaid
-scripts/          smoke-test.tsx, generate-examples.tsx
-dist/             built output — COMMITTED
+  pdf.ts          renderInvoicePdf
+  server.ts       renderInvoiceHtml
+  samples.ts      INVOICE_SAMPLES (fictional)
+scripts/          smoke-test.tsx, api-test.ts (HTTP + client + Fastify + node:http), generate-examples.tsx
+dist/             build output — git-ignored; built by `prepare` and in CI
 ```
 
 ## Money rules
@@ -60,10 +67,17 @@ dist/             built output — COMMITTED
 
 ```bash
 npm run typecheck && npm run smoke   # required before committing
-npm run build                        # then commit dist/
+npm run test:api                     # required when api.ts or the HTTP contract changes
+npm run build                        # dist/ (git-ignored)
 npm run examples                     # inspect PDFs visually
 ```
 
-## Privacy
+## Contract with the client
 
-Never commit real patient or billing data. Samples use fictional names.
+`InvoiceRequest` / `invoiceTotalsJson()` are mirrored in `@mgpl-diagnostics/client` (`InvoiceInput`,
+`InvoiceTotals`). report-studio's `contract-check.ts` fails its typecheck if they drift; change both repos together.
+
+## Privacy and licence
+
+Never commit real patient or billing data, or real signatures. Samples use fictional names.
+The code is "All rights reserved" (see LICENSE).
