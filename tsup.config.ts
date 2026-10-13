@@ -1,12 +1,13 @@
 import { defineConfig } from "tsup";
 
+// Backend-only package (Node.js >= 20). Browsers use @mgpl-diagnostics/client.
 export default defineConfig({
-  entry: { index: "src/index.ts", pdf: "src/pdf.ts", server: "src/server.ts" },
+  entry: { index: "src/index.ts", fastify: "src/fastify.ts" },
   format: ["esm"],
   dts: true,
-  target: "es2022",
-  platform: "neutral",
+  target: "node20",
+  platform: "node",
   splitting: true,
   clean: true,
-  external: [/^node:/],
+  external: [/^node:/, "fastify"],
 });

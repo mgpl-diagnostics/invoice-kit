@@ -1,9 +1,9 @@
 {
   "name": "@mgpl-diagnostics/invoice-kit",
-  "version": "1.0.0",
-  "description": "MGPL Diagnostics patient invoices: React (HTML) + pure Node.js A4 PDF on the Navy Sidebar letterhead.",
+  "version": "2.0.0",
+  "description": "MGPL Diagnostics patient invoices — BACKEND kit (Node.js): pricing, paise-exact totals, React/PDF rendering on the report-kit letterhead, and the combined reports + invoices HTTP API (Next.js, Fastify, Express…). Frontends use @mgpl-diagnostics/client.",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": "github:mgpl-diagnostics/invoice-kit",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -13,13 +13,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./pdf": {
-      "types": "./dist/pdf.d.ts",
-      "import": "./dist/pdf.js"
-    },
-    "./server": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/server.js"
+    "./fastify": {
+      "types": "./dist/fastify.d.ts",
+      "import": "./dist/fastify.js"
     },
     "./package.json": "./package.json"
   },
@@ -28,18 +24,24 @@
     "docs",
     "README.md",
     "AGENTS.md",
-    "llms.txt"
+    "llms.txt",
+    "LICENSE",
+    "llms-full.txt"
   ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke-test.tsx",
-    "examples": "tsx scripts/generate-examples.tsx"
+    "examples": "tsx scripts/generate-examples.tsx",
+    "prepare": "tsup",
+    "test:api": "tsx scripts/api-test.ts",
+    "llms": "node scripts/llms-full.mjs \"@mgpl-diagnostics/invoice-kit\" README.md docs/api.md AGENTS.md src/types.ts src/api.ts src/calc.ts src/build.ts"
   },
   "peerDependencies": {
-    "@mgpl-diagnostics/report-kit": "^1.0.0",
+    "@mgpl-diagnostics/report-kit": "^2.0.0",
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "fastify": ">=4"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.0",
@@ -58,12 +60,19 @@
     "react-dom": "^19.3.0",
     "tsup": "^8.5.0",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "fastify": "^5.12.5",
+    "@mgpl-diagnostics/client": "^1.0.0"
   },
   "engines": {
     "node": ">=20"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
+  },
+  "peerDependenciesMeta": {
+    "fastify": {
+      "optional": true
+    }
   }
 }

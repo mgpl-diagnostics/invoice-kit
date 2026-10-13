@@ -1,6 +1,6 @@
 import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
 import { formatDate, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
-import { SbLetterheadPdf, type SbPdfImages } from "@mgpl-diagnostics/report-kit/pdf";
+import { SbLetterheadPdf, type SbPdfImages } from "@mgpl-diagnostics/report-kit";
 import { CURRENCY, money, type InvoiceTotals } from "./calc";
 import {
   INV_BODY,

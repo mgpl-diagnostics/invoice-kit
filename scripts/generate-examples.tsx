@@ -4,8 +4,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { INVOICE_SAMPLES } from "../src";
-import { renderInvoicePdf } from "../src/pdf";
-import { renderInvoiceHtml } from "../src/server";
+import { renderInvoicePdf } from "../src";
+import { renderInvoiceHtml } from "../src";
 
 async function main() {
   const out = join(process.cwd(), "examples");

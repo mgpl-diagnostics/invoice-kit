@@ -6,9 +6,9 @@ import { join } from "node:path";
 import * as fontkit from "fontkit";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MGPL_LAB, type ReportVariant } from "@mgpl-diagnostics/report-kit";
-import { assetsDir } from "@mgpl-diagnostics/report-kit/pdf";
+import { assetsDir } from "@mgpl-diagnostics/report-kit";
 import { amountInWords, buildInvoice, computeInvoice, INVOICE_LAYOUT, INVOICE_SAMPLES, InvoiceDocument, invoicePages, type Invoice } from "../src";
-import { renderInvoicePdf } from "../src/pdf";
+import { renderInvoicePdf } from "../src";
 import { cellText, invoiceCard, invoiceColumns, invoiceQr, invoiceRows, noteLines, patientCard, subLine, totalLines, wordsOf } from "../src/model";
 
 const problems: string[] = [];

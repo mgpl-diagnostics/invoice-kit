@@ -1,8 +1,8 @@
 // Node.js PDF export for invoices — no browser involved. Import only on the server.
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createElement } from "react";
-import { barcodeSvg, MGPL_LAB, qrSvg, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
-import { assetsDir, loadImage, registerFonts, svgToPng } from "@mgpl-diagnostics/report-kit/pdf";
+import { barcodeSvg, defaultLab, qrSvg, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { assetsDir, loadImage, registerFonts, svgToPng } from "@mgpl-diagnostics/report-kit";
 import { join } from "node:path";
 import { computeInvoice } from "./calc";
 import { InvoicePdf } from "./InvoicePdf";
@@ -21,7 +21,7 @@ export interface RenderInvoicePdfOptions {
 
 /** Renders an invoice to an A4 PDF (Buffer). */
 export async function renderInvoicePdf(opts: RenderInvoicePdfOptions): Promise<Buffer> {
-  const lab = opts.lab ?? MGPL_LAB;
+  const lab = opts.lab ?? defaultLab();
   const publicDir = opts.publicDir ?? assetsDir();
   registerFonts(join(publicDir, "report-fonts"));
   const header = opts.variant === "header";
