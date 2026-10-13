@@ -35,7 +35,7 @@
     "examples": "tsx scripts/generate-examples.tsx",
     "prepare": "tsup",
     "test:api": "tsx scripts/api-test.ts",
-    "llms": "node scripts/llms-full.mjs \"@mgpl-diagnostics/invoice-kit\" README.md docs/api.md AGENTS.md src/types.ts src/api.ts src/calc.ts src/build.ts"
+    "llms": "node scripts/llms-full.mjs @mgpl-diagnostics/invoice-kit README.md AGENTS.md llms.txt docs package.json src scripts"
   },
   "peerDependencies": {
     "@mgpl-diagnostics/report-kit": "^2.0.0",

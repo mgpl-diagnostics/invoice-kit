@@ -34,3 +34,5 @@ jobs:
         run: npm run smoke
       - name: HTTP API test (handler, client, Fastify, node:http)
         run: npm run test:api
+      - name: llms-full.txt is up to date (run `npm run llms` and commit if this fails)
+        run: npm run llms && git diff --exit-code -- llms-full.txt
