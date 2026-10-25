@@ -462,7 +462,7 @@ Key facts for agents:
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "tsup": "^8.5.0",
+    "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "fastify": "^5.12.5",
