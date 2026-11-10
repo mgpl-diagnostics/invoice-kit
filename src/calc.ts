@@ -35,6 +35,8 @@ export interface InvoiceTotals {
   paid: number;
   /** total − paid, never negative */
   due: number;
+  /** money given back (refund payments), already taken off `paid` */
+  refunded: number;
   /** paid − total when overpaid (refund / change) */
   excess: number;
   status: PaymentStatus;
@@ -79,7 +81,10 @@ export function computeInvoice(inv: Invoice): InvoiceTotals {
   const sum = (f: (l: (typeof lines)[number]) => number) => lines.reduce((a, l) => a + f(l), 0);
   const exact = sum((l) => l.amount);
   const total = inv.roundOff === false ? exact : Math.round(exact / 100) * 100;
-  const paid = (inv.payments ?? []).reduce((a, p) => a + P(p.amount), 0);
+  // net: money received minus money given back
+  const received = (inv.payments ?? []).filter((p) => p.kind !== "refund").reduce((a, p) => a + P(p.amount), 0);
+  const refunded = (inv.payments ?? []).filter((p) => p.kind === "refund").reduce((a, p) => a + P(p.amount), 0);
+  const paid = received - refunded;
 
   const byRate = new Map<number, { taxable: number; tax: number }>();
   for (const l of lines) {
@@ -91,7 +96,15 @@ export function computeInvoice(inv: Invoice): InvoiceTotals {
     byRate.set(rate, e);
   }
 
-  const status: PaymentStatus = paid >= total ? "PAID" : paid > 0 ? "PARTIALLY PAID" : "DUE";
+  const status: PaymentStatus = inv.cancelled
+    ? "CANCELLED"
+    : refunded > 0 && paid <= 0
+      ? "REFUNDED"
+      : paid >= total
+        ? "PAID"
+        : paid > 0
+          ? "PARTIALLY PAID"
+          : "DUE";
   return {
     lines: lines.map((l) => ({
       item: l.item,
@@ -113,7 +126,8 @@ export function computeInvoice(inv: Invoice): InvoiceTotals {
     roundOff: R(total - exact),
     total: R(total),
     paid: R(paid),
-    due: R(Math.max(0, total - paid)),
+    refunded: R(refunded),
+    due: inv.cancelled ? 0 : R(Math.max(0, total - paid)),
     excess: R(Math.max(0, paid - total)),
     status,
     hasTax: lines.some((l) => (l.item.taxPercent ?? 0) > 0),

@@ -14,9 +14,9 @@ export function invoiceCss(fontBase = "/report-fonts"): string {
 .iv-title small { display:block; font-size:${INV_TITLE.subSize}pt; color:${C.muted}; font-weight:500; letter-spacing:0; margin-top:3pt; }
 .iv-status { color:#fff; font-weight:800; font-size:8pt; letter-spacing:.1em; padding:4pt 10pt; border-radius:999px; }
 .iv-card { position:absolute; top:${i(K.y)}; height:${i(K.h)}; background:${C.card}; border-radius:8px; padding:${i(K.pad)}; }
-.iv-field { display:flex; height:${i(K.lineH)}; align-items:center; gap:6pt; white-space:nowrap; }
-.iv-field span { width:0.78in; flex:none; font-size:${K.labelSize}pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:${C.muted}; }
-.iv-field b { font-size:${K.valueSize}pt; font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+.iv-field { display:flex; height:${i(K.lineH)}; align-items:center; gap:${K.gap}pt; white-space:nowrap; }
+.iv-field span { width:${i(K.labelW)}; flex:none; font-size:${K.labelSize}pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:${C.muted}; }
+.iv-field b { font-size:${K.valueSize}pt; font-weight:600; min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; }
 .iv-field b.strong { font-weight:800; }
 .iv-barcode { position:absolute; left:${i(INV_RIGHT - K.barcode.w)}; top:${i(K.y)}; width:${i(K.barcode.w)}; height:${i(K.barcode.h)}; }
 .iv-qr { position:absolute; left:${i(INV_RIGHT - K.barcode.w / 2 - K.qr.s / 2)}; top:${i(K.y + K.barcode.h + 0.04)}; width:${i(K.qr.s)}; height:${i(K.qr.s)}; }

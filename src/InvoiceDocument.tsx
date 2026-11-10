@@ -1,6 +1,6 @@
 import { barcodeSvg, formatDate, MGPL_LAB, qrSvg, SbLetterhead, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { CURRENCY, money, type InvoiceTotals } from "./calc";
-import { INV_CARDS, INV_COLORS, INV_PAY_COLS as PC } from "./layout";
+import { INV_CARDS, INV_COLORS, INV_PAY_COLS as PC, cardValueWidth, fitValueSize } from "./layout";
 import {
   cellText,
   invoiceCard,
@@ -17,6 +17,7 @@ import {
   type CardField,
   type InvColumn,
   type InvRow,
+  paymentRow,
 } from "./model";
 import { invoiceCss } from "./styles";
 import type { Invoice } from "./types";
@@ -107,7 +108,9 @@ function Card({ x, fields }: { x: "patient" | "invoice"; fields: CardField[] }) 
       {fields.map((f) => (
         <div key={f.label} className="iv-field">
           <span>{f.label}</span>
-          <b className={f.strong ? "strong" : undefined}>{f.value}</b>
+          <b className={f.strong ? "strong" : undefined} style={{ fontSize: `${fitValueSize(f.value, cardValueWidth(INV_CARDS[x].w), f.strong)}pt` }}>
+            {f.value}
+          </b>
         </div>
       ))}
     </div>
@@ -152,9 +155,9 @@ function Totals({ invoice, totals, lab }: { invoice: Invoice; totals: InvoiceTot
             pays.map((p, k) => (
               <div key={k} className="iv-row">
                 <div className="iv-cell left" style={{ width: inch(PC.date) }}>{formatDate(p.date ?? invoice.date)}</div>
-                <div className="iv-cell left" style={{ width: inch(PC.mode) }}>{p.mode}</div>
-                <div className="iv-cell left" style={{ width: inch(PC.ref) }}>{p.reference ?? "-"}</div>
-                <div className="iv-cell right" style={{ width: inch(PC.amount), fontWeight: 700 }}>{money(p.amount)}</div>
+                <div className="iv-cell left" style={{ width: inch(PC.mode) }}>{paymentRow(p).mode}</div>
+                <div className="iv-cell left" style={{ width: inch(PC.ref) }}>{paymentRow(p).reference}</div>
+                <div className="iv-cell right" style={{ width: inch(PC.amount), fontWeight: 700 }}>{paymentRow(p).amount}</div>
               </div>
             ))
           ) : (

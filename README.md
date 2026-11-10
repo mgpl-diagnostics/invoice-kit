@@ -152,3 +152,12 @@ and [llms.txt](llms.txt) / [llms-full.txt](llms-full.txt) for AI tools.
 | [report-studio](https://github.com/mgpl-diagnostics/report-studio) | app | Next.js reference app |
 
 <sub>© MGPL Diagnostics (Maa Gayatri Path Lab). All rights reserved; see [LICENSE](LICENSE). Sample prices and tax rates are placeholders.</sub>
+
+### Refunds, cancellations and long values
+
+- A refund is a payment with `kind: "refund"` (amount positive). It prints in the payments table as "Refund"
+  with a negative amount, and the totals show Amount Received, Refunded and Net Paid. `paid` is net.
+- `cancelled: true` prints a CANCELLED status, nothing due and no "scan to pay" QR. A fully refunded invoice
+  prints REFUNDED.
+- Card values (invoice number, patient name) shrink to fit their column (down to 6.5pt), so nothing paints
+  outside a card. An item with an unknown category prints under "Other charges", never disappears.
