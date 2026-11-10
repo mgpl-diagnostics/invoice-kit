@@ -34,9 +34,46 @@ export const INV_CARDS = {
   labelSize: 6.5,
   valueSize: 8.6,
   lineH: 0.165,
+  /** label column; "INVOICE NO" / "SAMPLE ID" at 6.5pt bold fit in 0.66in */
+  labelW: 0.66,
+  /** space between label and value, pt */
+  gap: 6,
+  /** smallest size a long value shrinks to (the barcode repeats the invoice number) */
+  minValueSize: 6.5,
   barcode: { w: 1.45, h: 0.32 },
   qr: { s: 0.56, labelSize: 6 },
 };
+/**
+ * Width of a card's value column, in pt: the card minus padding, the label column and the gap.
+ */
+export function cardValueWidth(cardW: number): number {
+  return (cardW - 2 * INV_CARDS.pad - INV_CARDS.labelW) * 72 - INV_CARDS.gap;
+}
+
+/**
+ * Font size (pt) at which `text` fits `widthPt` on one line: the card value size, or smaller for long
+ * values (an invoice number like "MGPL/ARG01/2026-27/000001", a long patient name), never below
+ * minValueSize. Widths are conservative per-character estimates (em) for the bold sans of the cards, so
+ * the PDF and the HTML preview pick the same size without measuring fonts, and the text never paints
+ * past its card.
+ */
+export function fitValueSize(text: string, widthPt: number, strong = false): number {
+  const em = [...text].reduce((w, ch) => w + charEm(ch), 0) * (strong ? 1.06 : 1);
+  if (em <= 0) return INV_CARDS.valueSize;
+  return Math.max(INV_CARDS.minValueSize, Math.min(INV_CARDS.valueSize, Math.floor((widthPt / em) * 10) / 10));
+}
+
+function charEm(ch: string): number {
+  if (/[0-9]/.test(ch)) return 0.6;
+  if (/[MWmw@]/.test(ch)) return 0.92;
+  if (/[A-Z]/.test(ch)) return 0.72;
+  if (/[il.,:;'|!]/.test(ch)) return 0.3;
+  if (/[a-z]/.test(ch)) return 0.58;
+  if (/\s/.test(ch)) return 0.28;
+  if (/[\/\-()]/.test(ch)) return 0.38;
+  return 0.65;
+}
+
 /** Items + totals area */
 export const INV_BODY = { top: 3.14, bottom: SB_BODY.bottom };
 export const INV_SIGN = SB_SIGN;

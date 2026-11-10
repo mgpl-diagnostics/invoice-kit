@@ -20,9 +20,11 @@ export type InvRow = { kind: "group"; label: string } | { kind: "item"; line: Co
 export function invoiceRows(t: InvoiceTotals): InvRow[] {
   const rows: InvRow[] = [];
   let no = 0;
-  const groups = ORDER.map((c) => t.lines.filter((l) => l.item.category === c)).filter((g) => g.length);
+  // an unknown or missing category prints under "other": a billed item must never vanish from the page
+  const cat = (l: ComputedLine): ItemCategory => (ORDER.includes(l.item.category) ? l.item.category : "other");
+  const groups = ORDER.map((c) => t.lines.filter((l) => cat(l) === c)).filter((g) => g.length);
   for (const g of groups) {
-    if (groups.length > 1) rows.push({ kind: "group", label: CATEGORY_LABEL[g[0].item.category] });
+    if (groups.length > 1) rows.push({ kind: "group", label: CATEGORY_LABEL[cat(g[0]!)] });
     for (const line of g) rows.push({ kind: "item", line, no: ++no });
   }
   return rows;
@@ -100,8 +102,13 @@ export function totalLines(inv: Invoice, t: InvoiceTotals): TotalLine[] {
   }
   if (t.roundOff) out.push({ label: "Round off", value: `${t.roundOff > 0 ? "+" : "-"} ${money(Math.abs(t.roundOff))}`, kind: "muted" });
   out.push({ label: "Grand Total", value: `${CURRENCY} ${money(t.total)}`, kind: "grand" });
-  out.push({ label: "Amount Paid", value: money(t.paid), kind: "paid" });
-  if (t.excess) out.push({ label: "Excess paid (refund)", value: money(t.excess), kind: "due" });
+  if (t.refunded) {
+    out.push({ label: "Amount Received", value: money(t.paid + t.refunded), kind: "paid" });
+    out.push({ label: "Refunded", value: `- ${money(t.refunded)}`, kind: "due" });
+    out.push({ label: "Net Paid", value: money(t.paid), kind: "paid" });
+  } else out.push({ label: "Amount Paid", value: money(t.paid), kind: "paid" });
+  if (t.status === "CANCELLED") out.push({ label: "Balance Due", value: `${money(0)} (cancelled)`, kind: "muted" });
+  else if (t.excess) out.push({ label: "Excess paid (to refund)", value: money(t.excess), kind: "due" });
   else out.push({ label: "Balance Due", value: money(t.due), kind: "due" });
   return out;
 }
@@ -110,7 +117,15 @@ export const STATUS_COLOR: Record<PaymentStatus, string> = {
   PAID: INV_COLORS.paid,
   "PARTIALLY PAID": INV_COLORS.partial,
   DUE: INV_COLORS.due,
+  REFUNDED: INV_COLORS.muted,
+  CANCELLED: INV_COLORS.muted,
 };
+
+/** How a payment row reads in the payments table: a refund says so in the reference column, and is negative. */
+export function paymentRow(p: { mode: string; amount: number; kind?: "payment" | "refund"; reference?: string }): { mode: string; reference: string; amount: string } {
+  if (p.kind === "refund") return { mode: p.mode, reference: p.reference ? `Refund · ${p.reference}` : "Refund", amount: `- ${money(p.amount)}` };
+  return { mode: p.mode, reference: p.reference ?? "-", amount: money(p.amount) };
+}
 
 /* -------------------------------------------------------------------- cards */
 export interface CardField {
@@ -131,7 +146,7 @@ export function patientCard(inv: Invoice): CardField[] {
 }
 
 export function invoiceCard(inv: Invoice, t: InvoiceTotals): CardField[] {
-  const modes = [...new Set((inv.payments ?? []).map((p) => p.mode))].join(", ");
+  const modes = [...new Set((inv.payments ?? []).filter((p) => p.kind !== "refund").map((p) => p.mode))].join(", ");
   return [
     { label: "Invoice No", value: inv.invoiceNo, strong: true },
     { label: "Date", value: formatDate(inv.date) },
@@ -143,7 +158,8 @@ export function invoiceCard(inv: Invoice, t: InvoiceTotals): CardField[] {
 
 /** UPI "scan to pay" when the lab has a UPI ID and money is due, otherwise a verification summary. */
 export function invoiceQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string } {
-  if (lab.upiId && t.due > 0) {
+  // never ask a cancelled or refunded invoice to be paid
+  if (lab.upiId && t.due > 0 && t.status !== "CANCELLED" && t.status !== "REFUNDED") {
     const q = new URLSearchParams({ pa: lab.upiId, pn: lab.name, am: t.due.toFixed(2), cu: "INR", tn: `Invoice ${inv.invoiceNo}` });
     return { value: `upi://pay?${q.toString()}`, label: `Scan to pay ${CURRENCY} ${money(t.due)}` };
   }

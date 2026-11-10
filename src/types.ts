@@ -27,7 +27,10 @@ export interface InvoiceItem {
 export interface Payment {
   /** "Cash" | "UPI" | "Card" | "Online" | "Cheque" | … */
   mode: string;
+  /** always positive; a refund is `kind: "refund"`, not a negative amount */
   amount: number;
+  /** money received (default) or money given back */
+  kind?: "payment" | "refund";
   date?: Date | string;
   /** Transaction / UTR / cheque number */
   reference?: string;
@@ -48,6 +51,8 @@ export interface Invoice {
   roundOff?: boolean;
   /** Heading, default "INVOICE" */
   title?: string;
+  /** a cancelled invoice prints CANCELLED and never asks for payment */
+  cancelled?: boolean;
 }
 
-export type PaymentStatus = "PAID" | "PARTIALLY PAID" | "DUE";
+export type PaymentStatus = "PAID" | "PARTIALLY PAID" | "DUE" | "REFUNDED" | "CANCELLED";

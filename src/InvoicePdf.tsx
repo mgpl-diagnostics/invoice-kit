@@ -17,6 +17,8 @@ import {
   INV_TOTALS,
   INV_W,
   INV_X,
+  cardValueWidth,
+  fitValueSize,
 } from "./layout";
 import {
   cellText,
@@ -34,6 +36,7 @@ import {
   type CardField,
   type InvColumn,
   type InvRow,
+  paymentRow,
 } from "./model";
 import type { Invoice } from "./types";
 
@@ -139,11 +142,11 @@ function Card({ at, fields }: { at: { x: number; w: number }; fields: CardField[
       {fields.map((f) => (
         <View key={f.label} style={{ height: i(K.lineH), flexDirection: "row", alignItems: "center" }}>
           {/* lineHeight 1 keeps each text inside its fixed-height row — react-pdf drops text that overflows */}
-          <View style={{ width: 0.78 * 72 + 6 }}>
+          <View style={{ width: K.labelW * 72 + K.gap }}>
             <Text style={{ fontSize: K.labelSize, fontWeight: 700, letterSpacing: 0.35, color: C.muted, lineHeight: 1 }}>{f.label.toUpperCase()}</Text>
           </View>
-          <View style={{ width: (at.w - 2 * K.pad - 0.78) * 72 - 6 }}>
-            <Text style={{ fontSize: K.valueSize, fontWeight: f.strong ? 800 : 600, lineHeight: 1 }}>{f.value}</Text>
+          <View style={{ width: cardValueWidth(at.w) }}>
+            <Text style={{ fontSize: fitValueSize(f.value, cardValueWidth(at.w), f.strong), fontWeight: f.strong ? 800 : 600, lineHeight: 1 }}>{f.value}</Text>
           </View>
         </View>
       ))}
@@ -213,9 +216,9 @@ function Totals({ invoice, totals, lab }: { invoice: Invoice; totals: InvoiceTot
                   {payRow(
                     [
                       [formatDate(p.date ?? invoice.date), PC.date, "left"],
-                      [p.mode, PC.mode, "left"],
-                      [p.reference ?? "-", PC.ref, "left"],
-                      [money(p.amount), PC.amount, "right", true],
+                      [paymentRow(p).mode, PC.mode, "left"],
+                      [paymentRow(p).reference, PC.ref, "left"],
+                      [paymentRow(p).amount, PC.amount, "right", true],
                     ],
                     R.payRow,
                   )}

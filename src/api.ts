@@ -62,6 +62,7 @@ export function invoiceFromRequest(body: InvoiceRequest, opts: Pick<ApiOptions, 
       if (it.taxPercent != null && (!num(it.taxPercent) || it.taxPercent < 0 || it.taxPercent > 100)) throw new Error(`items[${k}].taxPercent must be 0-100`);
     }
     for (const [k, p] of (built.payments ?? []).entries()) if (!num(p.amount) || p.amount < 0) throw new Error(`payments[${k}].amount must be a number >= 0`);
+    for (const [k, p] of (built.payments ?? []).entries()) if (p.kind != null && p.kind !== "payment" && p.kind !== "refund") throw new Error(`payments[${k}].kind must be "payment" or "refund"`);
     return built;
   } catch (e) {
     throw new HttpError(400, (e as Error).message);
