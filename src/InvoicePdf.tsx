@@ -1,5 +1,5 @@
 import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
-import { formatDate, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { formatDate, qrHoleBox, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { SbLetterheadPdf, type SbPdfImages } from "@mgpl-diagnostics/report-kit";
 import { CURRENCY, money, type InvoiceTotals } from "./calc";
 import {
@@ -10,6 +10,7 @@ import {
   INV_FONT,
   INV_LEGAL,
   INV_PAY_COLS as PC,
+  INV_PAYQR as PQ,
   INV_RIGHT,
   INV_ROWS as R,
   INV_SIGN,
@@ -25,6 +26,7 @@ import {
   invoiceCard,
   invoiceColumns,
   invoicePages,
+  invoicePayQr,
   invoiceQr,
   noteLines,
   patientCard,
@@ -48,6 +50,10 @@ export interface InvoicePdfImages {
   signature: Img;
   barcode?: Img;
   qr: Img;
+  /** The "scan to pay" QR (level H, blank centre) when money is due and the lab has a UPI ID */
+  payQr?: Img;
+  /** The lab's mark for the pay QR's centre */
+  mark?: Img;
 }
 
 const i = (n: number) => `${n}in`;
@@ -102,6 +108,7 @@ export function InvoicePdf({ invoice, variant, lab, images }: { invoice: Invoice
             ))}
             {page.totals && <Totals invoice={invoice} totals={totals} lab={lab} />}
           </View>
+          {page.totals && <PayQr invoice={invoice} totals={totals} lab={lab} images={images} />}
 
           {/* signature + legal */}
           <Image
@@ -176,6 +183,26 @@ function RowView({ row, cols }: { row: InvRow; cols: InvColumn[] }) {
         </Cell>
       ))}
     </View>
+  );
+}
+
+/** UPI "scan to pay" in the signature band, left of the signatory: level H, the lab's mark in the blank centre. */
+function PayQr({ invoice, totals, lab, images }: { invoice: Invoice; totals: InvoiceTotals; lab: LabProfile; images: InvoicePdfImages }) {
+  const pay = invoicePayQr(invoice, totals, lab);
+  if (!pay || !images.payQr) return null;
+  const box = qrHoleBox(PQ.hole);
+  const T = PQ.text;
+  const textH = T.labelRow + T.idRow + T.noteRow;
+  return (
+    <>
+      <Image src={images.payQr} style={{ position: "absolute", left: i(PQ.x), top: i(PQ.y), width: i(PQ.s), height: i(PQ.s) }} />
+      {images.mark && <Image src={images.mark} style={{ position: "absolute", left: i(PQ.x + box.offset * PQ.s), top: i(PQ.y + box.offset * PQ.s), width: i(box.size * PQ.s), height: i(box.size * PQ.s), objectFit: "contain" }} />}
+      <View style={{ position: "absolute", left: i(T.x), width: i(T.w), top: (PQ.y + PQ.s / 2) * 72 - textH / 2 }}>
+        <View style={{ height: T.labelRow, justifyContent: "center" }}><Text style={{ fontSize: T.labelSize, fontWeight: 800, color: C.navy, lineHeight: 1 }}>{pay.label}</Text></View>
+        <View style={{ height: T.idRow, justifyContent: "center" }}><Text style={{ fontSize: T.idSize, color: C.ink, lineHeight: 1 }}>{`UPI: ${pay.upiId}`}</Text></View>
+        <View style={{ height: T.noteRow, justifyContent: "center" }}><Text style={{ fontSize: T.noteSize, color: C.muted, lineHeight: 1 }}>{pay.note}</Text></View>
+      </View>
+    </>
   );
 }
 

@@ -1,5 +1,5 @@
 import { sidebarCss } from "@mgpl-diagnostics/report-kit";
-import { INV_BODY, INV_CARDS as K, INV_CELL_PAD, INV_COLORS as C, INV_LEGAL, INV_RIGHT, INV_ROWS as R, INV_SIGN, INV_TITLE, INV_TOTALS, INV_W, INV_X } from "./layout";
+import { INV_BODY, INV_CARDS as K, INV_CELL_PAD, INV_COLORS as C, INV_LEGAL, INV_PAYQR, INV_RIGHT, INV_ROWS as R, INV_SIGN, INV_TITLE, INV_TOTALS, INV_W, INV_X } from "./layout";
 
 const i = (n: number) => `${n}in`;
 
@@ -46,6 +46,13 @@ export function invoiceCss(fontBase = "/report-fonts"): string {
 .iv-pays { margin-top:${R.blockGap}pt; }
 .iv-pays .iv-row { height:${R.payRow}pt; }
 .iv-pays .iv-ph { height:${R.payHeader}pt; font-size:6.5pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:${C.muted}; border-bottom:0.8pt solid ${C.navy}; }
+.iv-payqr { position:absolute; left:${i(INV_PAYQR.x)}; top:${i(INV_PAYQR.y)}; width:${i(INV_PAYQR.s)}; height:${i(INV_PAYQR.s)}; }
+.iv-payqr-svg svg { display:block; width:${i(INV_PAYQR.s)}; height:${i(INV_PAYQR.s)}; }
+.iv-payqr-mark { position:absolute; object-fit:contain; }
+.iv-payqr-text { position:absolute; left:${i(INV_PAYQR.text.x)}; width:${i(INV_PAYQR.text.w)}; top:${i(INV_PAYQR.y + INV_PAYQR.s / 2)}; transform:translateY(-50%); }
+.iv-payqr-text b { display:block; height:${INV_PAYQR.text.labelRow}pt; line-height:${INV_PAYQR.text.labelRow}pt; font-size:${INV_PAYQR.text.labelSize}pt; font-weight:800; color:${C.navy}; white-space:nowrap; }
+.iv-payqr-text span { display:block; height:${INV_PAYQR.text.idRow}pt; line-height:${INV_PAYQR.text.idRow}pt; font-size:${INV_PAYQR.text.idSize}pt; color:${C.ink}; white-space:nowrap; }
+.iv-payqr-text small { display:block; height:${INV_PAYQR.text.noteRow}pt; line-height:${INV_PAYQR.text.noteRow}pt; font-size:${INV_PAYQR.text.noteSize}pt; color:${C.muted}; white-space:nowrap; }
 .iv-notes { margin-top:${R.blockGap}pt; }
 .iv-notes h4 { height:${R.noteTitle}pt; display:flex; align-items:center; font-size:6.5pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:${C.muted}; }
 .iv-notes p { height:${R.noteLine}pt; font-size:7pt; color:${C.ink}; white-space:nowrap; }

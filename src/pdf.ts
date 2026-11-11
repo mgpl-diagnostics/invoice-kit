@@ -2,11 +2,12 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createElement } from "react";
 import { barcodeSvg, defaultLab, qrSvg, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { INV_PAYQR } from "./layout";
 import { assetsDir, loadImage, registerFonts, svgToPng } from "@mgpl-diagnostics/report-kit";
 import { join } from "node:path";
 import { computeInvoice } from "./calc";
 import { InvoicePdf } from "./InvoicePdf";
-import { invoiceQr } from "./model";
+import { invoicePayQr, invoiceQr } from "./model";
 import type { Invoice } from "./types";
 
 export { InvoicePdf } from "./InvoicePdf";
@@ -32,8 +33,14 @@ export async function renderInvoicePdf(opts: RenderInvoicePdfOptions): Promise<B
     loadImage(header ? lab.signatory.signatureHeaderSrc : lab.signatory.signatureNonHeaderSrc, publicDir),
   ]);
   const bar = barcodeSvg(opts.invoice.invoiceNo, "code128");
-  const qr = invoiceQr(opts.invoice, computeInvoice(opts.invoice), lab);
-  const images = { logo, email, phone, signature, barcode: bar ? svgToPng(bar) : undefined, qr: svgToPng(qrSvg(qr.value), 800) };
+  const totals = computeInvoice(opts.invoice);
+  const qr = invoiceQr(opts.invoice, totals, lab);
+  const pay = invoicePayQr(opts.invoice, totals, lab);
+  const mark = pay && lab.markSrc ? await loadImage(lab.markSrc, publicDir) : undefined;
+  const images = {
+    logo, email, phone, signature, barcode: bar ? svgToPng(bar) : undefined, qr: svgToPng(qrSvg(qr.value), 800),
+    ...(pay ? { payQr: svgToPng(qrSvg(pay.value, "#000", { ecc: "H", hole: INV_PAYQR.hole }), 1200), ...(mark ? { mark } : {}) } : {}),
+  };
   const doc = createElement(InvoicePdf, { invoice: opts.invoice, variant: opts.variant, lab, images });
   return renderToBuffer(doc as Parameters<typeof renderToBuffer>[0]);
 }

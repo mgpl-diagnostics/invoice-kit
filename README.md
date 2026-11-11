@@ -39,7 +39,10 @@ Tests · packages · services · consumables · medicines · GST · discounts ·
 - **GST per rate.** Discount and GST columns appear only when used; lab tests are usually exempt.
 - **Round-off, grand total and amount in words** in the Indian system (lakh / crore).
 - **Payments:** split Cash/UPI/Card/…, paid, balance due or refund, and a **PAID · PARTIALLY PAID · DUE** stamp.
-- **Codes:** Code 128 barcode of the invoice number, plus a **UPI scan-to-pay QR** when the lab sets its UPI ID.
+- **Codes:** Code 128 barcode of the invoice number with a small QR (`invoice.qrValue`, e.g. the patient's link, or a
+  summary to verify the bill), plus a large **UPI scan-to-pay QR** for the amount due when the lab sets its UPI ID:
+  error correction H with the lab's mark (`markSrc`) in the centre, in the signature band left of the signatory, so it
+  never changes the page breaks.
 - **Same letterhead as the reports**, header and non-header (pre-printed paper), multi-page with *Page X of Y*.
 - **One API for everything:** `createMgplApi()` serves invoice *and* report routes.
 
@@ -126,7 +129,8 @@ report-kit template ids, so `itemsForTests(["cbc", "kft"])` bills a report's tes
 > **The rates shipped here are sample placeholders.** Pass your real list with `buildInvoice({ …, priceList })`,
 > or edit the file, and have your accountant confirm GST rates and HSN codes.
 
-Lab settings in report-kit's lab profile: `upiId` (scan-to-pay QR), `gstin` and `registrationNo` (under the title),
+Lab settings in report-kit's lab profile: `upiId` / `upiName` (scan-to-pay QR; on a server, `MGPL_UPI_ID` /
+`MGPL_UPI_NAME` through report-kit's `defaultLab()`), `markSrc` (logo in its centre), `gstin` and `registrationNo` (under the title),
 `invoiceTerms` (printed under the payments).
 
 ## Development

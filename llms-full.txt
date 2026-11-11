@@ -75,7 +75,10 @@ Tests · packages · services · consumables · medicines · GST · discounts ·
 - **GST per rate.** Discount and GST columns appear only when used; lab tests are usually exempt.
 - **Round-off, grand total and amount in words** in the Indian system (lakh / crore).
 - **Payments:** split Cash/UPI/Card/…, paid, balance due or refund, and a **PAID · PARTIALLY PAID · DUE** stamp.
-- **Codes:** Code 128 barcode of the invoice number, plus a **UPI scan-to-pay QR** when the lab sets its UPI ID.
+- **Codes:** Code 128 barcode of the invoice number with a small QR (`invoice.qrValue`, e.g. the patient's link, or a
+  summary to verify the bill), plus a large **UPI scan-to-pay QR** for the amount due when the lab sets its UPI ID:
+  error correction H with the lab's mark (`markSrc`) in the centre, in the signature band left of the signatory, so it
+  never changes the page breaks.
 - **Same letterhead as the reports**, header and non-header (pre-printed paper), multi-page with *Page X of Y*.
 - **One API for everything:** `createMgplApi()` serves invoice *and* report routes.
 
@@ -162,7 +165,8 @@ report-kit template ids, so `itemsForTests(["cbc", "kft"])` bills a report's tes
 > **The rates shipped here are sample placeholders.** Pass your real list with `buildInvoice({ …, priceList })`,
 > or edit the file, and have your accountant confirm GST rates and HSN codes.
 
-Lab settings in report-kit's lab profile: `upiId` (scan-to-pay QR), `gstin` and `registrationNo` (under the title),
+Lab settings in report-kit's lab profile: `upiId` / `upiName` (scan-to-pay QR; on a server, `MGPL_UPI_ID` /
+`MGPL_UPI_NAME` through report-kit's `defaultLab()`), `markSrc` (logo in its centre), `gstin` and `registrationNo` (under the title),
 `invoiceTerms` (printed under the payments).
 
 ## Development
@@ -413,7 +417,7 @@ Key facts for agents:
 ```json
 {
   "name": "@mgpl-diagnostics/invoice-kit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "MGPL Diagnostics patient invoices — BACKEND kit (Node.js): pricing, paise-exact totals, React/PDF rendering on the report-kit letterhead, and the combined reports + invoices HTTP API (Next.js, Fastify, Express…). Frontends use @mgpl-diagnostics/client.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
@@ -451,7 +455,7 @@ Key facts for agents:
     "llms": "node scripts/llms-full.mjs @mgpl-diagnostics/invoice-kit README.md AGENTS.md llms.txt docs package.json src scripts"
   },
   "peerDependencies": {
-    "@mgpl-diagnostics/report-kit": "^2.0.0",
+    "@mgpl-diagnostics/report-kit": "^2.3.0",
     "react": ">=18",
     "react-dom": ">=18",
     "fastify": ">=4"
@@ -814,7 +818,7 @@ import { MGPL_LAB, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { assetsDir } from "@mgpl-diagnostics/report-kit";
 import { amountInWords, buildInvoice, computeInvoice, INVOICE_LAYOUT, INVOICE_SAMPLES, InvoiceDocument, invoicePages, type Invoice } from "../src";
 import { renderInvoicePdf } from "../src";
-import { cellText, invoiceCard, invoiceColumns, invoiceQr, invoiceRows, noteLines, patientCard, subLine, totalLines, wordsOf } from "../src/model";
+import { cellText, invoiceCard, invoiceColumns, invoicePayQr, invoiceQr, invoiceRows, noteLines, patientCard, subLine, totalLines, wordsOf } from "../src/model";
 
 const problems: string[] = [];
 const warn = (m: string) => problems.push(m);
@@ -948,19 +952,34 @@ async function main() {
   const t0 = Date.now();
   const variants: ReportVariant[] = ["header", "non-header"];
   let ok = 0;
-  for (const s of INVOICE_SAMPLES) {
-    checkInvoice(s.id, s.invoice);
-    const pages = invoicePages(s.invoice, MGPL_LAB).pages.length;
+  // a lab with a UPI ID (fictional): every invoice with money due gets the "scan to pay" QR under the totals
+  const upiLab = { ...MGPL_LAB, upiId: "lab.example@okaxis", upiName: "Example Lab" };
+  let payQrs = 0;
+  for (const s of INVOICE_SAMPLES) for (const [lab, labTag] of [[MGPL_LAB, ""], [upiLab, "+upi"]] as const) {
+    if (!labTag) checkInvoice(s.id, s.invoice);
+    const pages = invoicePages(s.invoice, lab).pages.length;
+    const pay = invoicePayQr(s.invoice, computeInvoice(s.invoice), lab);
+    if (pay) {
+      const T = INVOICE_LAYOUT.INV_PAYQR.text;
+      if (width(mr[800], pay.label, T.labelSize) > T.w || width(mr[400], `UPI: ${pay.upiId}`, T.idSize) > T.w || width(mr[400], pay.note, T.noteSize) > T.w) warn(`${s.id}${labTag}: pay QR caption too wide`);
+      // the band left of the signatory: clear of the body above, the signature block and the legal line
+      const Q = INVOICE_LAYOUT.INV_PAYQR, S = INVOICE_LAYOUT.INV_SIGN;
+      if (Q.y < INVOICE_LAYOUT.INV_BODY.bottom || Q.y + Q.s > INVOICE_LAYOUT.INV_LEGAL.y - 0.04 || T.x + T.w > S.centerX - 1.3) warn(`${s.id}${labTag}: pay QR overlaps the body, signature or legal line`);
+      if (!pay.value.startsWith("upi://pay?pa=lab.example%40okaxis&pn=Example+Lab&am=")) warn(`${s.id}${labTag}: pay QR value ${pay.value}`);
+    }
     for (const v of variants) {
-      const tag = `${s.id}/${v}`;
+      const tag = `${s.id}${labTag}/${v}`;
       try {
-        const html = renderToStaticMarkup(<InvoiceDocument invoice={s.invoice} variant={v} />);
+        const html = renderToStaticMarkup(<InvoiceDocument invoice={s.invoice} variant={v} lab={lab} />);
+        if (pages !== invoicePages(s.invoice, MGPL_LAB).pages.length) warn(`${tag}: the pay QR changed the page count`);
+        if (html.includes('class="iv-payqr"') !== !!pay) warn(`${tag}: pay QR ${pay ? "missing" : "printed with nothing due or no UPI ID"}`);
+        if (pay && !html.includes('class="iv-payqr-mark"')) warn(`${tag}: pay QR has no logo in the centre`);
         const htmlPages = html.split('class="sb-page"').length - 1;
         if (htmlPages !== pages) warn(`${tag}: HTML ${htmlPages} pages, layout ${pages}`);
         if (!html.includes(s.invoice.invoiceNo)) warn(`${tag}: invoice number missing`);
         const hasLetterhead = html.includes('class="sb-side"');
         if ((v === "header") !== hasLetterhead) warn(`${tag}: letterhead ${hasLetterhead ? "printed" : "missing"}`);
-        const pdf = await renderInvoicePdf({ invoice: s.invoice, variant: v });
+        const pdf = await renderInvoicePdf({ invoice: s.invoice, variant: v, lab });
         const pdfPages = (pdf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length;
         if (pdfPages !== pages) warn(`${tag}: PDF ${pdfPages} pages, layout ${pages}`);
         // every value must really be drawn in the PDF (react-pdf silently drops overflowing text)
@@ -970,7 +989,9 @@ async function main() {
           s.invoice.invoiceNo, s.invoice.patient.name, ...patientCard(s.invoice).map((f) => f.value), ...invoiceCard(s.invoice, t).map((f) => f.value),
           ...s.invoice.items.map((it) => it.name), ...totalLines(s.invoice, t).map((l) => l.value), wordsOf(t),
           ...(s.invoice.payments ?? []).map((p) => p.reference ?? p.mode),
+          ...(pay ? [pay.label, `UPI: ${pay.upiId}`, pay.note] : []),
         ];
+        if (pay) payQrs++;
         for (const v of expect) if (!text.includes(squash(v))) warn(`${tag}: PDF is missing "${v}"`);
         ok++;
         console.log(`ok   ${tag.padEnd(34)} ${pages} page(s)  ${(pdf.length / 1024).toFixed(0)} KB`);
@@ -979,7 +1000,8 @@ async function main() {
       }
     }
   }
-  console.log(`\n${ok}/${INVOICE_SAMPLES.length * 2} invoice renders passed in ${((Date.now() - t0) / 1000).toFixed(1)}s.`);
+  if (!payQrs) warn("no sample printed a pay QR: add one with money due");
+  console.log(`\n${ok}/${INVOICE_SAMPLES.length * 4} invoice renders passed (${payQrs} with a pay QR) in ${((Date.now() - t0) / 1000).toFixed(1)}s.`);
   if (problems.length) {
     console.log(`\n${problems.length} problem(s):`);
     for (const p of problems) console.log("  - " + p);
@@ -997,14 +1019,15 @@ main();
 ## File: src/InvoiceDocument.tsx
 
 ```tsx
-import { barcodeSvg, formatDate, MGPL_LAB, qrSvg, SbLetterhead, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { barcodeSvg, formatDate, MGPL_LAB, qrHoleBox, qrSvg, SbLetterhead, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { CURRENCY, money, type InvoiceTotals } from "./calc";
-import { INV_CARDS, INV_COLORS, INV_PAY_COLS as PC, cardValueWidth, fitValueSize } from "./layout";
+import { INV_CARDS, INV_COLORS, INV_PAY_COLS as PC, INV_PAYQR, cardValueWidth, fitValueSize } from "./layout";
 import {
   cellText,
   invoiceCard,
   invoiceColumns,
   invoicePages,
+  invoicePayQr,
   invoiceQr,
   noteLines,
   patientCard,
@@ -1083,6 +1106,7 @@ export function InvoiceDocument({ invoice, variant, lab = MGPL_LAB, includeStyle
             ))}
             {page.totals && <Totals invoice={invoice} totals={totals} lab={lab} />}
           </div>
+          {page.totals && <PayQr invoice={invoice} totals={totals} lab={lab} />}
 
           <img className="sb-abs iv-signimg" src={signature} alt="Signature" />
           <div className="iv-signname">
@@ -1130,6 +1154,26 @@ function RowView({ row, cols }: { row: InvRow; cols: InvColumn[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** UPI "scan to pay": level H, the lab's mark in the blank centre (same geometry as the PDF). */
+function PayQr({ invoice, totals, lab }: { invoice: Invoice; totals: InvoiceTotals; lab: LabProfile }) {
+  const pay = invoicePayQr(invoice, totals, lab);
+  if (!pay) return null;
+  const box = qrHoleBox(INV_PAYQR.hole);
+  return (
+    <>
+      <div className="iv-payqr">
+        <Svg className="iv-payqr-svg" svg={qrSvg(pay.value, "#000", { ecc: "H", hole: INV_PAYQR.hole })} />
+        {lab.markSrc && <img className="iv-payqr-mark" src={lab.markSrc} alt="" style={{ left: inch(box.offset * INV_PAYQR.s), top: inch(box.offset * INV_PAYQR.s), width: inch(box.size * INV_PAYQR.s), height: inch(box.size * INV_PAYQR.s) }} />}
+      </div>
+      <div className="iv-payqr-text">
+        <b>{pay.label}</b>
+        <span>UPI: {pay.upiId}</span>
+        <small>{pay.note}</small>
+      </div>
+    </>
   );
 }
 
@@ -1194,7 +1238,7 @@ function Totals({ invoice, totals, lab }: { invoice: Invoice; totals: InvoiceTot
 
 ```tsx
 import { Document, Image, Page, Text, View } from "@react-pdf/renderer";
-import { formatDate, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { formatDate, qrHoleBox, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { SbLetterheadPdf, type SbPdfImages } from "@mgpl-diagnostics/report-kit";
 import { CURRENCY, money, type InvoiceTotals } from "./calc";
 import {
@@ -1205,6 +1249,7 @@ import {
   INV_FONT,
   INV_LEGAL,
   INV_PAY_COLS as PC,
+  INV_PAYQR as PQ,
   INV_RIGHT,
   INV_ROWS as R,
   INV_SIGN,
@@ -1220,6 +1265,7 @@ import {
   invoiceCard,
   invoiceColumns,
   invoicePages,
+  invoicePayQr,
   invoiceQr,
   noteLines,
   patientCard,
@@ -1243,6 +1289,10 @@ export interface InvoicePdfImages {
   signature: Img;
   barcode?: Img;
   qr: Img;
+  /** The "scan to pay" QR (level H, blank centre) when money is due and the lab has a UPI ID */
+  payQr?: Img;
+  /** The lab's mark for the pay QR's centre */
+  mark?: Img;
 }
 
 const i = (n: number) => `${n}in`;
@@ -1297,6 +1347,7 @@ export function InvoicePdf({ invoice, variant, lab, images }: { invoice: Invoice
             ))}
             {page.totals && <Totals invoice={invoice} totals={totals} lab={lab} />}
           </View>
+          {page.totals && <PayQr invoice={invoice} totals={totals} lab={lab} images={images} />}
 
           {/* signature + legal */}
           <Image
@@ -1371,6 +1422,26 @@ function RowView({ row, cols }: { row: InvRow; cols: InvColumn[] }) {
         </Cell>
       ))}
     </View>
+  );
+}
+
+/** UPI "scan to pay" in the signature band, left of the signatory: level H, the lab's mark in the blank centre. */
+function PayQr({ invoice, totals, lab, images }: { invoice: Invoice; totals: InvoiceTotals; lab: LabProfile; images: InvoicePdfImages }) {
+  const pay = invoicePayQr(invoice, totals, lab);
+  if (!pay || !images.payQr) return null;
+  const box = qrHoleBox(PQ.hole);
+  const T = PQ.text;
+  const textH = T.labelRow + T.idRow + T.noteRow;
+  return (
+    <>
+      <Image src={images.payQr} style={{ position: "absolute", left: i(PQ.x), top: i(PQ.y), width: i(PQ.s), height: i(PQ.s) }} />
+      {images.mark && <Image src={images.mark} style={{ position: "absolute", left: i(PQ.x + box.offset * PQ.s), top: i(PQ.y + box.offset * PQ.s), width: i(box.size * PQ.s), height: i(box.size * PQ.s), objectFit: "contain" }} />}
+      <View style={{ position: "absolute", left: i(T.x), width: i(T.w), top: (PQ.y + PQ.s / 2) * 72 - textH / 2 }}>
+        <View style={{ height: T.labelRow, justifyContent: "center" }}><Text style={{ fontSize: T.labelSize, fontWeight: 800, color: C.navy, lineHeight: 1 }}>{pay.label}</Text></View>
+        <View style={{ height: T.idRow, justifyContent: "center" }}><Text style={{ fontSize: T.idSize, color: C.ink, lineHeight: 1 }}>{`UPI: ${pay.upiId}`}</Text></View>
+        <View style={{ height: T.noteRow, justifyContent: "center" }}><Text style={{ fontSize: T.noteSize, color: C.muted, lineHeight: 1 }}>{pay.note}</Text></View>
+      </View>
+    </>
   );
 }
 
@@ -1908,7 +1979,7 @@ export { renderInvoicePdf, InvoicePdf, type RenderInvoicePdfOptions } from "./pd
 export { renderInvoiceHtml } from "./server";
 export { InvoiceDocument, type InvoiceDocumentProps } from "./InvoiceDocument";
 export { invoiceCss } from "./styles";
-export { invoicePages, invoiceQr, CATEGORY_LABEL } from "./model";
+export { invoicePages, invoicePayQr, invoiceQr, CATEGORY_LABEL } from "./model";
 export * as INVOICE_LAYOUT from "./layout";
 
 // Demo data
@@ -2019,6 +2090,16 @@ export const INV_ROWS = {
   noteTitle: 14,
   noteLine: 10,
   blockGap: 8,
+};
+
+/**
+ * "Scan to pay" UPI QR on the last page, in the signature band left of the signatory (below the body, so
+ * it never changes the page breaks), when money is due and the lab has a UPI ID: error correction H with
+ * the lab's mark in a blank centre. Inches; caption rows in pt, beside the code.
+ */
+export const INV_PAYQR = {
+  x: SB_CONTENT.x, y: 9.62, s: 0.9, hole: 0.26,
+  text: { x: SB_CONTENT.x + 1.0, w: 2.1, labelRow: 12, labelSize: 9, idRow: 11, idSize: 7, noteRow: 10, noteSize: 6.5 },
 };
 
 /** Totals panel on the right, notes/payments panel on the left */
@@ -2193,13 +2274,20 @@ export function invoiceCard(inv: Invoice, t: InvoiceTotals): CardField[] {
   ];
 }
 
-/** UPI "scan to pay" when the lab has a UPI ID and money is due, otherwise a verification summary. */
-export function invoiceQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string } {
+/**
+ * UPI "scan to pay" for the amount due, printed large under the totals with the lab's mark in the centre;
+ * null when the lab has no UPI ID, nothing is due, or the invoice is cancelled or refunded.
+ */
+export function invoicePayQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string; upiId: string; note: string } | null {
   // never ask a cancelled or refunded invoice to be paid
-  if (lab.upiId && t.due > 0 && t.status !== "CANCELLED" && t.status !== "REFUNDED") {
-    const q = new URLSearchParams({ pa: lab.upiId, pn: lab.name, am: t.due.toFixed(2), cu: "INR", tn: `Invoice ${inv.invoiceNo}` });
-    return { value: `upi://pay?${q.toString()}`, label: `Scan to pay ${CURRENCY} ${money(t.due)}` };
-  }
+  if (!lab.upiId || t.due <= 0 || t.status === "CANCELLED" || t.status === "REFUNDED") return null;
+  const q = new URLSearchParams({ pa: lab.upiId, pn: (lab.upiName ?? lab.name).slice(0, 99), am: t.due.toFixed(2), cu: "INR", tn: `Invoice ${inv.invoiceNo}`.slice(0, 80) });
+  return { value: `upi://pay?${q.toString()}`, label: `Scan to pay ${CURRENCY} ${money(t.due)}`, upiId: lab.upiId, note: "Any UPI app. The amount is filled in." };
+}
+
+/** The small QR beside the barcode: `invoice.qrValue` (e.g. the patient's link) when given, otherwise a verification summary. */
+export function invoiceQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string } {
+  if (inv.qrValue) return { value: inv.qrValue, label: inv.qrLabel ?? "Scan for your reports" };
   return {
     value: [
       lab.name,
@@ -2281,11 +2369,12 @@ export function invoicePages(inv: Invoice, lab: LabProfile): { pages: InvPage[];
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createElement } from "react";
 import { barcodeSvg, defaultLab, qrSvg, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { INV_PAYQR } from "./layout";
 import { assetsDir, loadImage, registerFonts, svgToPng } from "@mgpl-diagnostics/report-kit";
 import { join } from "node:path";
 import { computeInvoice } from "./calc";
 import { InvoicePdf } from "./InvoicePdf";
-import { invoiceQr } from "./model";
+import { invoicePayQr, invoiceQr } from "./model";
 import type { Invoice } from "./types";
 
 export { InvoicePdf } from "./InvoicePdf";
@@ -2311,8 +2400,14 @@ export async function renderInvoicePdf(opts: RenderInvoicePdfOptions): Promise<B
     loadImage(header ? lab.signatory.signatureHeaderSrc : lab.signatory.signatureNonHeaderSrc, publicDir),
   ]);
   const bar = barcodeSvg(opts.invoice.invoiceNo, "code128");
-  const qr = invoiceQr(opts.invoice, computeInvoice(opts.invoice), lab);
-  const images = { logo, email, phone, signature, barcode: bar ? svgToPng(bar) : undefined, qr: svgToPng(qrSvg(qr.value), 800) };
+  const totals = computeInvoice(opts.invoice);
+  const qr = invoiceQr(opts.invoice, totals, lab);
+  const pay = invoicePayQr(opts.invoice, totals, lab);
+  const mark = pay && lab.markSrc ? await loadImage(lab.markSrc, publicDir) : undefined;
+  const images = {
+    logo, email, phone, signature, barcode: bar ? svgToPng(bar) : undefined, qr: svgToPng(qrSvg(qr.value), 800),
+    ...(pay ? { payQr: svgToPng(qrSvg(pay.value, "#000", { ecc: "H", hole: INV_PAYQR.hole }), 1200), ...(mark ? { mark } : {}) } : {}),
+  };
   const doc = createElement(InvoicePdf, { invoice: opts.invoice, variant: opts.variant, lab, images });
   return renderToBuffer(doc as Parameters<typeof renderToBuffer>[0]);
 }
@@ -2515,7 +2610,7 @@ export async function renderInvoiceHtml(opts: { invoice: Invoice; variant: Repor
 
 ```ts
 import { sidebarCss } from "@mgpl-diagnostics/report-kit";
-import { INV_BODY, INV_CARDS as K, INV_CELL_PAD, INV_COLORS as C, INV_LEGAL, INV_RIGHT, INV_ROWS as R, INV_SIGN, INV_TITLE, INV_TOTALS, INV_W, INV_X } from "./layout";
+import { INV_BODY, INV_CARDS as K, INV_CELL_PAD, INV_COLORS as C, INV_LEGAL, INV_PAYQR, INV_RIGHT, INV_ROWS as R, INV_SIGN, INV_TITLE, INV_TOTALS, INV_W, INV_X } from "./layout";
 
 const i = (n: number) => `${n}in`;
 
@@ -2562,6 +2657,13 @@ export function invoiceCss(fontBase = "/report-fonts"): string {
 .iv-pays { margin-top:${R.blockGap}pt; }
 .iv-pays .iv-row { height:${R.payRow}pt; }
 .iv-pays .iv-ph { height:${R.payHeader}pt; font-size:6.5pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:${C.muted}; border-bottom:0.8pt solid ${C.navy}; }
+.iv-payqr { position:absolute; left:${i(INV_PAYQR.x)}; top:${i(INV_PAYQR.y)}; width:${i(INV_PAYQR.s)}; height:${i(INV_PAYQR.s)}; }
+.iv-payqr-svg svg { display:block; width:${i(INV_PAYQR.s)}; height:${i(INV_PAYQR.s)}; }
+.iv-payqr-mark { position:absolute; object-fit:contain; }
+.iv-payqr-text { position:absolute; left:${i(INV_PAYQR.text.x)}; width:${i(INV_PAYQR.text.w)}; top:${i(INV_PAYQR.y + INV_PAYQR.s / 2)}; transform:translateY(-50%); }
+.iv-payqr-text b { display:block; height:${INV_PAYQR.text.labelRow}pt; line-height:${INV_PAYQR.text.labelRow}pt; font-size:${INV_PAYQR.text.labelSize}pt; font-weight:800; color:${C.navy}; white-space:nowrap; }
+.iv-payqr-text span { display:block; height:${INV_PAYQR.text.idRow}pt; line-height:${INV_PAYQR.text.idRow}pt; font-size:${INV_PAYQR.text.idSize}pt; color:${C.ink}; white-space:nowrap; }
+.iv-payqr-text small { display:block; height:${INV_PAYQR.text.noteRow}pt; line-height:${INV_PAYQR.text.noteRow}pt; font-size:${INV_PAYQR.text.noteSize}pt; color:${C.muted}; white-space:nowrap; }
 .iv-notes { margin-top:${R.blockGap}pt; }
 .iv-notes h4 { height:${R.noteTitle}pt; display:flex; align-items:center; font-size:6.5pt; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:${C.muted}; }
 .iv-notes p { height:${R.noteLine}pt; font-size:7pt; color:${C.ink}; white-space:nowrap; }
@@ -2637,6 +2739,11 @@ export interface Invoice {
   title?: string;
   /** a cancelled invoice prints CANCELLED and never asks for payment */
   cancelled?: boolean;
+  /** What the small QR beside the barcode encodes (e.g. the patient's link to this bill and its reports).
+   *  Default: a plain-text summary to verify the bill. Set by the server; not part of the HTTP request. */
+  qrValue?: string;
+  /** Caption under that QR when `qrValue` is set. Default "Scan for your reports". */
+  qrLabel?: string;
 }
 
 export type PaymentStatus = "PAID" | "PARTIALLY PAID" | "DUE" | "REFUNDED" | "CANCELLED";
