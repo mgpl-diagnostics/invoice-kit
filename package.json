@@ -1,6 +1,6 @@
 {
   "name": "@mgpl-diagnostics/invoice-kit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "MGPL Diagnostics patient invoices — BACKEND kit (Node.js): pricing, paise-exact totals, React/PDF rendering on the report-kit letterhead, and the combined reports + invoices HTTP API (Next.js, Fastify, Express…). Frontends use @mgpl-diagnostics/client.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
@@ -38,7 +38,7 @@
     "llms": "node scripts/llms-full.mjs @mgpl-diagnostics/invoice-kit README.md AGENTS.md llms.txt docs package.json src scripts"
   },
   "peerDependencies": {
-    "@mgpl-diagnostics/report-kit": "^2.0.0",
+    "@mgpl-diagnostics/report-kit": "^2.3.0",
     "react": ">=18",
     "react-dom": ">=18",
     "fastify": ">=4"

@@ -98,6 +98,16 @@ export const INV_ROWS = {
   blockGap: 8,
 };
 
+/**
+ * "Scan to pay" UPI QR on the last page, in the signature band left of the signatory (below the body, so
+ * it never changes the page breaks), when money is due and the lab has a UPI ID: error correction H with
+ * the lab's mark in a blank centre. Inches; caption rows in pt, beside the code.
+ */
+export const INV_PAYQR = {
+  x: SB_CONTENT.x, y: 9.62, s: 0.9, hole: 0.26,
+  text: { x: SB_CONTENT.x + 1.0, w: 2.1, labelRow: 12, labelSize: 9, idRow: 11, idSize: 7, noteRow: 10, noteSize: 6.5 },
+};
+
 /** Totals panel on the right, notes/payments panel on the left */
 export const INV_TOTALS = { rightW: 2.75, gap: 0.25 };
 export const INV_CELL_PAD = 0.06;

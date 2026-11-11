@@ -1,11 +1,12 @@
-import { barcodeSvg, formatDate, MGPL_LAB, qrSvg, SbLetterhead, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
+import { barcodeSvg, formatDate, MGPL_LAB, qrHoleBox, qrSvg, SbLetterhead, type LabProfile, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { CURRENCY, money, type InvoiceTotals } from "./calc";
-import { INV_CARDS, INV_COLORS, INV_PAY_COLS as PC, cardValueWidth, fitValueSize } from "./layout";
+import { INV_CARDS, INV_COLORS, INV_PAY_COLS as PC, INV_PAYQR, cardValueWidth, fitValueSize } from "./layout";
 import {
   cellText,
   invoiceCard,
   invoiceColumns,
   invoicePages,
+  invoicePayQr,
   invoiceQr,
   noteLines,
   patientCard,
@@ -84,6 +85,7 @@ export function InvoiceDocument({ invoice, variant, lab = MGPL_LAB, includeStyle
             ))}
             {page.totals && <Totals invoice={invoice} totals={totals} lab={lab} />}
           </div>
+          {page.totals && <PayQr invoice={invoice} totals={totals} lab={lab} />}
 
           <img className="sb-abs iv-signimg" src={signature} alt="Signature" />
           <div className="iv-signname">
@@ -131,6 +133,26 @@ function RowView({ row, cols }: { row: InvRow; cols: InvColumn[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** UPI "scan to pay": level H, the lab's mark in the blank centre (same geometry as the PDF). */
+function PayQr({ invoice, totals, lab }: { invoice: Invoice; totals: InvoiceTotals; lab: LabProfile }) {
+  const pay = invoicePayQr(invoice, totals, lab);
+  if (!pay) return null;
+  const box = qrHoleBox(INV_PAYQR.hole);
+  return (
+    <>
+      <div className="iv-payqr">
+        <Svg className="iv-payqr-svg" svg={qrSvg(pay.value, "#000", { ecc: "H", hole: INV_PAYQR.hole })} />
+        {lab.markSrc && <img className="iv-payqr-mark" src={lab.markSrc} alt="" style={{ left: inch(box.offset * INV_PAYQR.s), top: inch(box.offset * INV_PAYQR.s), width: inch(box.size * INV_PAYQR.s), height: inch(box.size * INV_PAYQR.s) }} />}
+      </div>
+      <div className="iv-payqr-text">
+        <b>{pay.label}</b>
+        <span>UPI: {pay.upiId}</span>
+        <small>{pay.note}</small>
+      </div>
+    </>
   );
 }
 

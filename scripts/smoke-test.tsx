@@ -9,7 +9,7 @@ import { MGPL_LAB, type ReportVariant } from "@mgpl-diagnostics/report-kit";
 import { assetsDir } from "@mgpl-diagnostics/report-kit";
 import { amountInWords, buildInvoice, computeInvoice, INVOICE_LAYOUT, INVOICE_SAMPLES, InvoiceDocument, invoicePages, type Invoice } from "../src";
 import { renderInvoicePdf } from "../src";
-import { cellText, invoiceCard, invoiceColumns, invoiceQr, invoiceRows, noteLines, patientCard, subLine, totalLines, wordsOf } from "../src/model";
+import { cellText, invoiceCard, invoiceColumns, invoicePayQr, invoiceQr, invoiceRows, noteLines, patientCard, subLine, totalLines, wordsOf } from "../src/model";
 
 const problems: string[] = [];
 const warn = (m: string) => problems.push(m);
@@ -143,19 +143,34 @@ async function main() {
   const t0 = Date.now();
   const variants: ReportVariant[] = ["header", "non-header"];
   let ok = 0;
-  for (const s of INVOICE_SAMPLES) {
-    checkInvoice(s.id, s.invoice);
-    const pages = invoicePages(s.invoice, MGPL_LAB).pages.length;
+  // a lab with a UPI ID (fictional): every invoice with money due gets the "scan to pay" QR under the totals
+  const upiLab = { ...MGPL_LAB, upiId: "lab.example@okaxis", upiName: "Example Lab" };
+  let payQrs = 0;
+  for (const s of INVOICE_SAMPLES) for (const [lab, labTag] of [[MGPL_LAB, ""], [upiLab, "+upi"]] as const) {
+    if (!labTag) checkInvoice(s.id, s.invoice);
+    const pages = invoicePages(s.invoice, lab).pages.length;
+    const pay = invoicePayQr(s.invoice, computeInvoice(s.invoice), lab);
+    if (pay) {
+      const T = INVOICE_LAYOUT.INV_PAYQR.text;
+      if (width(mr[800], pay.label, T.labelSize) > T.w || width(mr[400], `UPI: ${pay.upiId}`, T.idSize) > T.w || width(mr[400], pay.note, T.noteSize) > T.w) warn(`${s.id}${labTag}: pay QR caption too wide`);
+      // the band left of the signatory: clear of the body above, the signature block and the legal line
+      const Q = INVOICE_LAYOUT.INV_PAYQR, S = INVOICE_LAYOUT.INV_SIGN;
+      if (Q.y < INVOICE_LAYOUT.INV_BODY.bottom || Q.y + Q.s > INVOICE_LAYOUT.INV_LEGAL.y - 0.04 || T.x + T.w > S.centerX - 1.3) warn(`${s.id}${labTag}: pay QR overlaps the body, signature or legal line`);
+      if (!pay.value.startsWith("upi://pay?pa=lab.example%40okaxis&pn=Example+Lab&am=")) warn(`${s.id}${labTag}: pay QR value ${pay.value}`);
+    }
     for (const v of variants) {
-      const tag = `${s.id}/${v}`;
+      const tag = `${s.id}${labTag}/${v}`;
       try {
-        const html = renderToStaticMarkup(<InvoiceDocument invoice={s.invoice} variant={v} />);
+        const html = renderToStaticMarkup(<InvoiceDocument invoice={s.invoice} variant={v} lab={lab} />);
+        if (pages !== invoicePages(s.invoice, MGPL_LAB).pages.length) warn(`${tag}: the pay QR changed the page count`);
+        if (html.includes('class="iv-payqr"') !== !!pay) warn(`${tag}: pay QR ${pay ? "missing" : "printed with nothing due or no UPI ID"}`);
+        if (pay && !html.includes('class="iv-payqr-mark"')) warn(`${tag}: pay QR has no logo in the centre`);
         const htmlPages = html.split('class="sb-page"').length - 1;
         if (htmlPages !== pages) warn(`${tag}: HTML ${htmlPages} pages, layout ${pages}`);
         if (!html.includes(s.invoice.invoiceNo)) warn(`${tag}: invoice number missing`);
         const hasLetterhead = html.includes('class="sb-side"');
         if ((v === "header") !== hasLetterhead) warn(`${tag}: letterhead ${hasLetterhead ? "printed" : "missing"}`);
-        const pdf = await renderInvoicePdf({ invoice: s.invoice, variant: v });
+        const pdf = await renderInvoicePdf({ invoice: s.invoice, variant: v, lab });
         const pdfPages = (pdf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length;
         if (pdfPages !== pages) warn(`${tag}: PDF ${pdfPages} pages, layout ${pages}`);
         // every value must really be drawn in the PDF (react-pdf silently drops overflowing text)
@@ -165,7 +180,9 @@ async function main() {
           s.invoice.invoiceNo, s.invoice.patient.name, ...patientCard(s.invoice).map((f) => f.value), ...invoiceCard(s.invoice, t).map((f) => f.value),
           ...s.invoice.items.map((it) => it.name), ...totalLines(s.invoice, t).map((l) => l.value), wordsOf(t),
           ...(s.invoice.payments ?? []).map((p) => p.reference ?? p.mode),
+          ...(pay ? [pay.label, `UPI: ${pay.upiId}`, pay.note] : []),
         ];
+        if (pay) payQrs++;
         for (const v of expect) if (!text.includes(squash(v))) warn(`${tag}: PDF is missing "${v}"`);
         ok++;
         console.log(`ok   ${tag.padEnd(34)} ${pages} page(s)  ${(pdf.length / 1024).toFixed(0)} KB`);
@@ -174,7 +191,8 @@ async function main() {
       }
     }
   }
-  console.log(`\n${ok}/${INVOICE_SAMPLES.length * 2} invoice renders passed in ${((Date.now() - t0) / 1000).toFixed(1)}s.`);
+  if (!payQrs) warn("no sample printed a pay QR: add one with money due");
+  console.log(`\n${ok}/${INVOICE_SAMPLES.length * 4} invoice renders passed (${payQrs} with a pay QR) in ${((Date.now() - t0) / 1000).toFixed(1)}s.`);
   if (problems.length) {
     console.log(`\n${problems.length} problem(s):`);
     for (const p of problems) console.log("  - " + p);

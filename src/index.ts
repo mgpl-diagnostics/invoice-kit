@@ -14,7 +14,7 @@ export { renderInvoicePdf, InvoicePdf, type RenderInvoicePdfOptions } from "./pd
 export { renderInvoiceHtml } from "./server";
 export { InvoiceDocument, type InvoiceDocumentProps } from "./InvoiceDocument";
 export { invoiceCss } from "./styles";
-export { invoicePages, invoiceQr, CATEGORY_LABEL } from "./model";
+export { invoicePages, invoicePayQr, invoiceQr, CATEGORY_LABEL } from "./model";
 export * as INVOICE_LAYOUT from "./layout";
 
 // Demo data

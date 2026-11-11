@@ -156,13 +156,20 @@ export function invoiceCard(inv: Invoice, t: InvoiceTotals): CardField[] {
   ];
 }
 
-/** UPI "scan to pay" when the lab has a UPI ID and money is due, otherwise a verification summary. */
-export function invoiceQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string } {
+/**
+ * UPI "scan to pay" for the amount due, printed large under the totals with the lab's mark in the centre;
+ * null when the lab has no UPI ID, nothing is due, or the invoice is cancelled or refunded.
+ */
+export function invoicePayQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string; upiId: string; note: string } | null {
   // never ask a cancelled or refunded invoice to be paid
-  if (lab.upiId && t.due > 0 && t.status !== "CANCELLED" && t.status !== "REFUNDED") {
-    const q = new URLSearchParams({ pa: lab.upiId, pn: lab.name, am: t.due.toFixed(2), cu: "INR", tn: `Invoice ${inv.invoiceNo}` });
-    return { value: `upi://pay?${q.toString()}`, label: `Scan to pay ${CURRENCY} ${money(t.due)}` };
-  }
+  if (!lab.upiId || t.due <= 0 || t.status === "CANCELLED" || t.status === "REFUNDED") return null;
+  const q = new URLSearchParams({ pa: lab.upiId, pn: (lab.upiName ?? lab.name).slice(0, 99), am: t.due.toFixed(2), cu: "INR", tn: `Invoice ${inv.invoiceNo}`.slice(0, 80) });
+  return { value: `upi://pay?${q.toString()}`, label: `Scan to pay ${CURRENCY} ${money(t.due)}`, upiId: lab.upiId, note: "Any UPI app. The amount is filled in." };
+}
+
+/** The small QR beside the barcode: `invoice.qrValue` (e.g. the patient's link) when given, otherwise a verification summary. */
+export function invoiceQr(inv: Invoice, t: InvoiceTotals, lab: LabProfile): { value: string; label: string } {
+  if (inv.qrValue) return { value: inv.qrValue, label: inv.qrLabel ?? "Scan for your reports" };
   return {
     value: [
       lab.name,

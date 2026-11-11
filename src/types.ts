@@ -53,6 +53,11 @@ export interface Invoice {
   title?: string;
   /** a cancelled invoice prints CANCELLED and never asks for payment */
   cancelled?: boolean;
+  /** What the small QR beside the barcode encodes (e.g. the patient's link to this bill and its reports).
+   *  Default: a plain-text summary to verify the bill. Set by the server; not part of the HTTP request. */
+  qrValue?: string;
+  /** Caption under that QR when `qrValue` is set. Default "Scan for your reports". */
+  qrLabel?: string;
 }
 
 export type PaymentStatus = "PAID" | "PARTIALLY PAID" | "DUE" | "REFUNDED" | "CANCELLED";
